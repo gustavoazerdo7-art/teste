@@ -1,0 +1,61 @@
+name: Build Refrigerator Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Refrigerator
+        shell: pwsh
+        run: |
+          dotnet publish src/Refrigerator/Refrigerator.csproj -c Release -r win-x64 --self-contained true -o publish
+
+      - name: Prepare installer payload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force src/Refrigerator.Setup/Payload | Out-Null
+          Copy-Item publish/Refrigerator.exe src/Refrigerator.Setup/Payload/Refrigerator.exe -Force
+
+      - name: Publish Refrigerator Setup
+        shell: pwsh
+        run: |
+          dotnet publish src/Refrigerator.Setup/Refrigerator.Setup.csproj -c Release -r win-x64 --self-contained true -o setup_publish
+
+      - name: Package release
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item setup_publish/RefrigeratorSetup.exe release/RefrigeratorSetup.exe
+          Copy-Item publish/Refrigerator.exe release/Refrigerator-Portable.exe
+          @"
+          Refrigerator v0.1 MVP
+
+          RECOMENDADO: execute RefrigeratorSetup.exe.
+          Ele instala o aplicativo em D:\Refrigerator\App\Refrigerator.exe.
+
+          Primeiro uso:
+          1. Configure Gemini, Groq, OpenAI-compatible ou Local (Ollama).
+          2. Abra Roblox e calibre a região do chat na aba Aplicativos.
+          3. Para enviar: escreva em português, Alt+Enter, revise o inglês e pressione Enter.
+          4. Microfone: habilite e configure Groq; Ctrl+Shift+Espaço inicia/para a gravação.
+          "@ | Set-Content release/LEIA-ME.txt -Encoding UTF8
+          Get-FileHash release/RefrigeratorSetup.exe -Algorithm SHA256 | Format-List | Out-String | Set-Content release/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Refrigerator-Windows-v0.1
+          path: release/*
+          if-no-files-found: error
+          compression-level: 6
