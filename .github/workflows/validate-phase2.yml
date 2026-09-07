@@ -1,0 +1,43 @@
+name: Validate Refrigerator Phase 2
+on:
+  push:
+    branches: [phase2-full-validation]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract validation source
+        shell: pwsh
+        run: |
+          Expand-Archive -Path validation/phase2-validation.zip -DestinationPath validation/src -Force
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        shell: pwsh
+        working-directory: validation/src
+        run: dotnet restore Refrigerator.sln
+      - name: Build Translation Core
+        shell: pwsh
+        working-directory: validation/src
+        run: dotnet build src/Refrigerator.TranslationCore/Refrigerator.TranslationCore.csproj -c Release --no-restore
+      - name: Run Phase 2 offline tests
+        shell: pwsh
+        working-directory: validation/src
+        run: dotnet run --project src/Refrigerator.TranslationCore.Tests/Refrigerator.TranslationCore.Tests.csproj -c Release
+      - name: Build DesignSystem
+        shell: pwsh
+        working-directory: validation/src
+        run: dotnet build src/Refrigerator.DesignSystem/Refrigerator.DesignSystem.csproj -c Release --no-restore
+      - name: Build Showcase
+        shell: pwsh
+        working-directory: validation/src
+        run: dotnet build src/Refrigerator.DesignSystem.Showcase/Refrigerator.DesignSystem.Showcase.csproj -c Release --no-restore
+      - name: Build App
+        shell: pwsh
+        working-directory: validation/src
+        run: dotnet build src/Refrigerator.App/Refrigerator.App.csproj -c Release --no-restore
